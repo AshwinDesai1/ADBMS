@@ -1,0 +1,115 @@
+Practical u3-p8
+
+-- create varray type for storing up to 5 contact numbers
+create type Buyercontact is varray(5) of number;
+
+-- create table for cars
+create table cars(id number primary key,carName varchar2(100),model number)storage
+  (initial 2k next 2k);
+
+-- create table for buyer
+create table buyer(id number primary key,BuyerName varchar2(100),address varchar2(200))storage(initial 2k next 2k);
+
+-- create table for buyer contacts using varray type
+create table BuyerContactTable(id number primary key,BuyerId number,contact Buyercontact, FOREIGN KEY (BuyerId) REFERENCES buyer(id))storage (initial 4k next 4k);
+
+-- insert data into cars table
+insert into cars (id, carName, model) values (1, 'Toyota Corolla', 2020);
+insert into cars (id, carName, model) values (2, 'Honda Civic', 2021);
+insert into cars (id, carName, model) values (3, 'Ford Mustang', 2019);
+insert into cars (id, carName, model) values (4, 'Chevrolet Camaro', 2018);
+insert into cars (id, carName, model) values (5, 'Tesla Model 3', 2022);
+
+-- insert data into buyer table
+insert into buyer (id, BuyerName, address) values (1, 'Nitesh Desai', '123 MG Road, Deesa');
+insert into buyer (id, BuyerName, address) values (2, 'Jignesh Desai', '45 Nehru Nagar, Ahmedabad');
+insert into buyer (id, BuyerName, address) values (3, 'Praveen Prajapati', '78 Park Street, Rajasthan');
+insert into buyer (id, BuyerName, address) values (4, 'Ashwin Rabari', 'Anand nagar, Palanpur');
+insert into buyer (id, BuyerName, address) values (5, 'Manish Desai', '9 Civil Lines, Tharad');
+
+-- procedure to insert buyer contact
+create or replace procedure insert_buyer_contact (
+    p_id       number,
+    p_buyerid  number,
+    p_contact  Buyercontact
+) is
+begin
+    insert into BuyerContactTable (id, BuyerId, contact)
+    values (p_id, p_buyerid, p_contact);
+end;
+/
+
+-- procedure to append new contact number
+create or replace procedure append_buyer_contact (
+    p_id   number,
+    p_num  number
+) is
+    val Buyercontact;
+begin
+    select contact into val from BuyerContactTable where id = p_id;
+
+    val.extend;
+    val(val.last) := p_num;
+
+    update BuyerContactTable
+    set contact = val
+    where id = p_id;
+end;
+/
+
+-- procedure to update contact at specific position
+create or replace procedure update_buyer_contact (                     
+    p_id       number,
+    p_position number,
+    p_value    number
+) is
+    val Buyercontact;
+begin
+    select contact into val from BuyerContactTable where id = p_id;
+
+    if p_position between 1 and val.count then
+        val(p_position) := p_value;
+        update BuyerContactTable
+        set contact = val
+        where id = p_id;
+    else
+        dbms_output.put_line('Index not present');
+    end if;
+end;
+/
+
+-- procedure to delete contact at specific position
+
+create or replace procedure delete_buyer_contact (
+    p_id       number,
+    p_position number
+) is
+    val Buyercontact;
+begin
+    select contact into val from BuyerContactTable where id = p_id;   
+
+    if p_position between 1 and val.count then
+        for i in p_position .. val.count - 1 loop
+            val(i) := val(i + 1);
+        end loop;
+        val.trim;
+        update BuyerContactTable
+        set contact = val
+        where id = p_id;
+    else
+        dbms_output.put_line('Index not present');
+    end if;
+end;
+/
+
+-- insert initial contacts
+exec insert_buyer_contact(11, 3, Buyercontact(9998887777, 8887776666));
+
+-- append new contact
+exec append_buyer_contact(11, 7000111222);
+
+-- update second contact number
+exec update_buyer_contact(11, 2, 7777777777);
+
+-- delete first contact number
+exec delete_buyer_contact(11, 1);

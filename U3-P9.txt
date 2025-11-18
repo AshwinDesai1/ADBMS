@@ -1,0 +1,108 @@
+Practical u3-p9
+
+-- nested table type to hold multiple car ids
+create or replace type CarList as table of number;
+/
+
+-- create table purchaseorders with nested table column carids
+create table PurchaseOrders (
+    orderId   number primary key,
+    buyerId   number,
+    carIds    CarList,
+    foreign key (buyerId) references buyer(id)
+)
+nested table carIds store as carIds_nt storage (initial 4k next 4k);
+/
+
+-- procedure to insert new purchase order with nested table of car ids
+create or replace procedure insert_order_nested (
+    p_orderId   number,
+    p_buyerId   number,
+    p_carList   CarList
+) is
+begin
+    insert into PurchaseOrders (orderId, buyerId, carIds)
+    values (p_orderId, p_buyerId, p_carList);
+
+    commit;
+end;
+/
+
+-- procedure to append new car id into existing order
+create or replace procedure append_order_nested (
+    p_orderid number,
+    p_carid   number
+) is
+begin
+    insert into table (
+        select po.carids
+        from purchaseorders po
+        where po.orderid = p_orderid
+    )
+    values (p_carid);
+end;
+/
+
+
+
+-- procedure to update car id at specific position
+create or replace procedure update_order_nested (
+    p_orderId   number,
+    p_position  number,
+    p_carId     number
+) is
+    cars CarList;
+begin
+    select carIds into cars
+    from PurchaseOrders
+    where orderId = p_orderId;
+
+    if p_position between 1 and cars.count then
+        cars(p_position) := p_carId;
+        update PurchaseOrders
+        set carIds = cars
+        where orderId = p_orderId;
+    else
+        dbms_output.put_line('Index not present');
+    end if;
+
+    commit;
+end;
+/
+
+-- procedure to delete car id at specific position
+create or replace procedure delete_order_nested (
+    p_orderId   number,
+    p_position  number
+) is
+    cars CarList;
+begin
+    select carIds into cars
+    from PurchaseOrders
+    where orderId = p_orderId;
+
+    if p_position between 1 and cars.count then
+        cars.delete(p_position);
+        update PurchaseOrders
+        set carIds = cars
+        where orderId = p_orderId;
+    else
+        dbms_output.put_line('Index not present');
+    end if;
+
+    commit;
+end;
+/
+
+-- insert new orders with car lists
+exec insert_order_nested(1, 1 ,CarList(1,2,3));
+exec insert_order_nested(2, 2 ,CarList(3,5));
+
+-- append new car id to existing order
+exec apped_order_nested(2, 1);
+
+-- update car id at second position in order 1
+exec update_order_nested(1, 2, 5);
+
+-- delete car id at second position in order 1
+exec delete_order_nested(1, 2);
